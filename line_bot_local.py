@@ -412,18 +412,24 @@ def main():
     try:  # 從開通道起就在 try 裡：只要 Webhook 換過，不管怎麼結束都會換回去
         url = open_tunnel()
         if url:
-            code, res = line("PUT", "/v2/bot/channel/webhook/endpoint", {"endpoint": url + "/callback"})
-            if code != 200:
-                log(f"⚠️ 換 Webhook 失敗 {code}：{res}。可以手動貼到 LINE Developers：{url}/callback")
-            else:
-                switched = True
-                log(f"✅ LINE 的 Webhook 換到這台電腦了：{url}/callback（按 Ctrl+C 會換回去）")
-                log("   LINE 說換網址最多要 1 分鐘才生效；等一下再用手機傳訊息")
-                time.sleep(5)
-                code, test = line("POST", "/v2/bot/channel/webhook/test", {})
-                log(f"   LINE 測試連線：{'✅ 通了' if test.get('success') else '還沒通（' + str(test.get('reason')) + '），等一分鐘再傳'}")
+            log("   等 Cloudflare 網域名稱全球解析生效 (約 8 秒)...")
+            time.sleep(8)
+            for attempt in range(4):
+                code, res = line("PUT", "/v2/bot/channel/webhook/endpoint", {"endpoint": url + "/callback"})
+                if code == 200:
+                    switched = True
+                    log(f"✅ LINE 的 Webhook 換到這台電腦了：{url}/callback（按 Ctrl+C 會換回去）")
+                    log("   LINE 說換網址最多要 1 分鐘才生效；等一下再用手機傳訊息")
+                    time.sleep(5)
+                    code, test = line("POST", "/v2/bot/channel/webhook/test", {})
+                    log(f"   LINE 測試連線：{'✅ 通了' if test.get('success') else '還沒通（' + str(test.get('reason')) + '），等一分鐘再傳'}")
+                    break
+                else:
+                    time.sleep(5)
+            if not switched:
+                log(f"⚠️ 自動換 Webhook 失敗 {code}：{res}。請手動貼到 LINE Developers：{url}/callback")
         log("開好了。手機傳訊息給 bot 試試看；這個視窗不要關，按 Ctrl+C 結束。" if switched
-            else "⚠️ 這次沒接上 LINE（看上面的訊息）。按 Ctrl+C 結束。")
+            else "通道運行中。請至 LINE Developers 手動貼上 Webhook 網址後，按 Verify 驗證並用手機測試；按 Ctrl+C 結束。")
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
